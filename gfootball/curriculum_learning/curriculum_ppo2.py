@@ -33,7 +33,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             episode_window_size=20, stop=True,
             scenario='gfootball.scenarios.1_vs_1_easy',
             curriculum=np.linspace(0, 0.95, 20),
-            eval_period=100, eval_episodes=1,
+            eval_period=20, eval_episodes=1,
             **network_kwargs):
     '''
     Learn policy using PPO algorithm (https://arxiv.org/abs/1707.06347)
@@ -123,8 +123,8 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
     eval_pickle_str = pickle_str + '_eval'
 
     # open pickle file to append relevant data in binary
-    pickle_dir = '/content/cs285_f2020_proj/pickled_data/'
-    model_dir = '/content/cs285_f2020_proj/models/'
+    pickle_dir = '/content/cs285_f2020_proj/football/pickled_data/'
+    model_dir = '/content/cs285_f2020_proj/football/models/'
 
     # create dir for pickling & model save
     if not os.path.exists(pickle_dir): 
@@ -180,7 +180,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
     def make_eval_runner(difficulty):
         vec_env = SubprocVecEnv([
             (lambda _i=i: create_single_football_env(_i, difficulty))
-            for i in range(FLAGS.num_env, 2*FLAGS.num_env)
+            for i in range(FLAGS.num_envs, 2*FLAGS.num_envs)
         ], context=None)
         print('vec env obs space', vec_env.observation_space)
         return env, Runner(env=vec_env, model=model, nsteps=nsteps, gamma=gamma, lam=lam) 
@@ -296,7 +296,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             update_fn(update)
 
         # every eval period run for eval_nsteps on every difficulty
-        if update % eval_period == 2:
+        if update % eval_period == 1:
             # rews[i] = sum of rewards from eval_nsteps for difficulty index i
             eval_rews_period = [] # 2D array
             eval_rews_period_sum = [] # 1D array
