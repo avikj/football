@@ -41,7 +41,7 @@ def pretty_print(timesteps, eprewmean_buf, rewlen, awsr, difficulty):
   print('===')
 
 
-def train_results(config):
+def train_results(config, smoothing=0):
     # use pickle path as first argument
     timesteps = []
     eprewmeans = []
@@ -56,28 +56,27 @@ def train_results(config):
                 timesteps.append(logs_list[0])
                 eprewmeans.append(logs_list[1])
                 sum_of_last_windowsize_rewards.append(logs_list[3])
-                if logs_list[3] > 0:
-                    print(pretty_print(*logs_list))
+                #if logs_list[3] > 0:
+                print(pretty_print(*logs_list))
                 difficulties.append(logs_list[4])
                 logs_list = pickle.load(pickle_file)
             except EOFError:
                 break
     ys = [eprewmeans, difficulties, sum_of_last_windowsize_rewards]
-    
-    plt.plot(
-        timesteps,
-        ys[config]
-    )
-    plt.title(titles[config])
-    plt.xlabel('Timestep #')
-    plt.ylabel(ylabels[config])
-    plt.show()
+    for smoothing in [10, 12, 14, 16, 18, 20]:
+        plt.plot(
+            timesteps[smoothing:],
+            [np.mean(ys[config][i-smoothing:i+1]) for i in range(len(timesteps)-smoothing)]
+        )
+        plt.title(titles[config]+' (smoothing=%d)'%smoothing)
+        plt.xlabel('Timestep #')
+        plt.ylabel(ylabels[config])
+        plt.show()
 
-def eval_results():
+def eval_results(path, added_smoothing=3):
     timesteps = []
     eval_rew_period_sums = []
 
-    path = sys.argv[1]
     with open(path, 'rb') as pickle_file:
         logs_list = pickle.load(pickle_file)
         while True:
@@ -89,17 +88,15 @@ def eval_results():
                 break
     eval_rew_period_sums = np.array(eval_rew_period_sums)
 
-
     plots = []
     for i in range(len(eval_rew_period_sums[0])):
         yaxis_data = eval_rew_period_sums[:,i]
         plot_i, = plt.plot(
-            timesteps,
-            yaxis_data,
-            color=colors[i],
+            timesteps[added_smoothing:],
+            [np.mean(yaxis_data[i-added_smoothing:i]) for i in range(len(timesteps)-added_smoothing)],
+            color=colors[i]
         )
         plots.append(plot_i)
-
 
     plt.legend(
         labels=["{:.1f}".format(l) for l in np.linspace(0, 1, 10)],
@@ -113,6 +110,6 @@ def eval_results():
 
 if __name__ == '__main__':
     train_results(WINDOWREW)
-    #eval_results()
+    #eval_results(sys.argv[1])
 
 
