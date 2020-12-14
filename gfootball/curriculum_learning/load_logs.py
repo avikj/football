@@ -8,10 +8,10 @@ REWMEAN = 0
 DIFFICULTY = 1
 WINDOWREW = 2
 
-titles = ['Moving Episode Reward Mean over Last 100 Episodes', 
+titles = ['Episode Rewards Mean', 
 'Difficulty of Rule-Based Agent in 1v1',
-'Sum of Last [Window Size] Rewards']
-ylabels = ['Episode Reward Mean', 'Difficulty', 'Window Reward Sum']
+'Mean Episode Reward over last 20 Episodes']
+ylabels = ['Episode Reward Mean', 'Difficulty', 'Window Reward Mean']
 
 colors = [
     '#5d42f5',
@@ -32,52 +32,49 @@ colors = [
 # ep reward mean
 # ep len mean
 # difficulty
-def pretty_print(timesteps, eprewmean_buf, rewlen, awsr, difficulty):
-  print('timesteps', timesteps)
-  print('ep reward mean (last 100 episodes)', eprewmean_buf)
-  print('length of rewards arr', rewlen)
-  print('sum of last (window_size=1e4,1e5) rewards', awsr)
-  print('difficulty', difficulty)
-  print('===')
+def pretty_print(d):
+    for k in d:
+        print(k, d[k])
 
-
-def train_results(config):
+def train_results(config, smoothing=0):
     # use pickle path as first argument
     timesteps = []
     eprewmeans = []
-    sum_of_last_windowsize_rewards=[]
+    mean_ws_episode_rewards=[] # mean rewards per episode over last [window size] episodes
     difficulties = []
+
+    ws = 0
 
     path = sys.argv[1]
     with open(path, 'rb') as pickle_file:
-        logs_list = pickle.load(pickle_file)
+        logs_dict = pickle.load(pickle_file)
         while True:
             try:
-                timesteps.append(logs_list[0])
-                eprewmeans.append(logs_list[1])
-                sum_of_last_windowsize_rewards.append(logs_list[3])
-                if logs_list[3] > 0:
-                    print(pretty_print(*logs_list))
-                difficulties.append(logs_list[4])
-                logs_list = pickle.load(pickle_file)
+                if logs_dict['episode'] % 10 == 0:
+                    print(pretty_print(logs_dict))
+                ws = logs_dict['episode_window_size']
+                timesteps.append(logs_dict['timesteps'])
+                mean_ws_episode_rewards.append(sum(logs_dict['last_window_size_rewards']) / ws)
+                eprewmeans.append(np.mean(logs_dict['episode_rewards']))
+                difficulties.append(logs_dict['difficulty'])
+                logs_dict = pickle.load(pickle_file)
             except EOFError:
                 break
-    ys = [eprewmeans, difficulties, sum_of_last_windowsize_rewards]
-    
+    ys = [eprewmeans, difficulties, mean_ws_episode_rewards]
+    # for smoothing in [10, 12, 14, 16, 18, 20]:
     plt.plot(
-        timesteps,
-        ys[config]
+        timesteps[smoothing:],
+        [np.mean(ys[config][i-smoothing:i+1]) for i in range(len(timesteps)-smoothing)]
     )
-    plt.title(titles[config])
+    plt.title(titles[config]+' (smoothing=%d)'%smoothing)
     plt.xlabel('Timestep #')
     plt.ylabel(ylabels[config])
     plt.show()
 
-def eval_results():
+def eval_results(path, added_smoothing=3):
     timesteps = []
     eval_rew_period_sums = []
 
-    path = sys.argv[1]
     with open(path, 'rb') as pickle_file:
         logs_list = pickle.load(pickle_file)
         while True:
@@ -89,17 +86,15 @@ def eval_results():
                 break
     eval_rew_period_sums = np.array(eval_rew_period_sums)
 
-
     plots = []
     for i in range(len(eval_rew_period_sums[0])):
         yaxis_data = eval_rew_period_sums[:,i]
         plot_i, = plt.plot(
-            timesteps,
-            yaxis_data,
-            color=colors[i],
+            timesteps[added_smoothing:],
+            [np.mean(yaxis_data[i-added_smoothing:i]) for i in range(len(timesteps)-added_smoothing)],
+            color=colors[i]
         )
         plots.append(plot_i)
-
 
     plt.legend(
         labels=["{:.1f}".format(l) for l in np.linspace(0, 1, 10)],
@@ -112,7 +107,7 @@ def eval_results():
 
 
 if __name__ == '__main__':
-    train_results(WINDOWREW)
-    #eval_results()
+    # train_results(WINDOWREW)
+    eval_results(sys.argv[1])
 
 
