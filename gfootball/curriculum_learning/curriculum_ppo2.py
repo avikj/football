@@ -32,7 +32,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             save_interval=10, load_path=None, model_fn=None, update_fn=None, init_fn=None, mpi_rank_weight=1, comm=None, 
             episode_window_size=20, stop=True,
             scenario='gfootball.scenarios.1_vs_1_easy',
-            curriculum=np.linspace(0, 0.95, 20),
+            curriculum=np.linspace(0, 0.9, 10), b=0.1,
             eval_period=20, eval_episodes=1,
             **network_kwargs):
     '''
@@ -138,7 +138,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
                 print('made path', file_path)
     
     make_file(pickle_dir + pickle_str)
-    make_file(pickle_dir + eval_pickle_str)
+    # make_file(pickle_dir + eval_pickle_str)
 
     # Instantiate the model object (that creates act_model and train_model)
     if model_fn is None:
@@ -173,9 +173,18 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
         ], context=None)
         print('vec env obs space', vec_env.observation_space)
         return env, Runner(env=vec_env, model=model, nsteps=nsteps, gamma=gamma, lam=lam) 
+
+    # get next difficulty according to distribution outlined in probabilities.
+    def get_next_difficulty():
+        draw = np.random.choice(range(10), 1, curriculum_probabilities)
+        return draw
+
     # Instantiate the runner object
-    env, runner = make_runner(curriculum[0])
-    difficulty_idx = 0
+    # Curriculum difficulties start off as random.
+    curriculum_probabilities = [0.1] * 10
+
+    difficulty_idx = get_next_difficulty()
+    env, runner = make_runner(curriculum[difficulty_idx])
 
     def make_eval_runner(difficulty):
         vec_env = SubprocVecEnv([
@@ -188,6 +197,22 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
     policy = build_policy(env, network, **network_kwargs)
      
     eprews = []
+    rews_by_difficulty = [[] for in range(10)]
+
+    k = 5 # last k episodes to smooth over
+    rdi = 20 # reward difference interval, in episodes
+
+    def update_curriculum_probabilities(curriculum_probabilities):
+        prev_smoothed_rews = []
+        latest_smoothed_rews = []
+        for i, diffrewlist in enumerate(rewards_by_difficulty):
+            # mean the last k episode's rewards
+            prev_smoothed_rews.append(np.mean(rews_by_difficulty[-rdi-k:-rdi]))
+            latest_smoothed_rews.append(np.mean(rews_by_difficulty[-k:]))
+
+        e_diff_rews = np.exp(b * (latest_smoothed_rews - prev_smoothed_rews))
+        return e_diff_rews / np.sum(e_diff_rews)
+
 
     # eval_rews[i] will be all the rewards from evaluation i
     # eval_rews[i][j] will be rewards from evaluation i at difficulty j ~ 2:20 = (0.05, 0.95)
@@ -263,6 +288,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
 
         # sum of last average_window_size rewards
         last_aws_rewards_sum = sum(eprews[-average_window_size:])
+        rews_by_difficulty[difficulty_idx].extend(np.sum(rewards_this_episode))
 
         # pickling
         pickle_data = {
@@ -295,6 +321,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
         if update_fn is not None:
             update_fn(update)
 
+        '''
         # every eval period run for eval_nsteps on every difficulty
         if update % eval_period == 1:
             # rews[i] = sum of rewards from eval_nsteps for difficulty index i
@@ -321,6 +348,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             with open(pickle_dir + eval_pickle_str, 'ab') as eval_pickle_file:
                 pickle.dump(eval_pickle_data, eval_pickle_file)
             print('eval pickle dumped, u#', update)
+        '''
 
         if update % log_interval == 0 or update == 1:
             # Calculates if value function is a good predicator of the returns (ev > 1)
@@ -333,11 +361,6 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             logger.logkv("misc/explained_variance", float(ev))
             logger.logkv('eprewmean', safemean([epinfo['r'] for epinfo in epinfobuf]))
             logger.logkv('eplenmean', safemean([epinfo['l'] for epinfo in epinfobuf]))
-            '''
-            if eval_env is not None:
-                logger.logkv('eval_eprewmean', safemean([epinfo['r'] for epinfo in eval_epinfobuf]) )
-                logger.logkv('eval_eplenmean', safemean([epinfo['l'] for epinfo in eval_epinfobuf]) )
-            '''
             logger.logkv('misc/time_elapsed', tnow - tfirststart)
             for (lossval, lossname) in zip(lossvals, model.loss_names):
                 logger.logkv('loss/' + lossname, lossval)
@@ -347,10 +370,12 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             savepath = osp.join(model_dir, pickle_str)
             print('Saving to', savepath)
             model.save(savepath)
-        if difficulty_idx < len(curriculum)-1 and len(eprews) >= average_window_size and last_aws_rewards_sum >= 0:
-            difficulty_idx += 1
+
+        if update > 5: #10 * (rdi + k): TODO CHANGE THIS BACK TO 10 * (RDI + K) once verified not buggy.
+            curriculum_probabilities = update_curriculum_probabilities()
+            difficulty_idx = get_next_difficulty()
             print("\n\n\n\n\n=====================================\n",
-                  "INCREASING DIFFICULTY TO",curriculum[difficulty_idx],
+                  "NEXT DIFFICULTY:",curriculum[difficulty_idx],
                   "\n===========================================\n\n\n\n\n\n")
             env, runner = make_runner(curriculum[difficulty_idx])
     return model
