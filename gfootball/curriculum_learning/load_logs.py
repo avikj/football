@@ -14,18 +14,16 @@ titles = ['Episode Rewards Mean',
 ylabels = ['Episode Reward Mean', 'Difficulty', 'Window Reward Mean']
 
 colors = [
-    '#5d42f5',
-    '#f54242',
-    '#2ecc71',
-    '#f1c40f',
-    '#42d1f5',
-    '#e37e19',
-    '#2c3e50',
-    '#7f8c8d',
+    '#0be881',   
+    '#2c3e50',  
+    '#2ecc71',  
+    '#42d1f5',  
+    '#5d42f5',   
+    '#7f8c8d',  
     '#ffd32a',
-    '#ef5777',
-    '#0be881',
-    '#0fbcf9'
+    '#f54242',    
+    '#e37e19', 
+    '#ef5777',  
 ]
 
 # timesteps
@@ -64,7 +62,7 @@ def train_results(config, smoothing=0):
     # for smoothing in [10, 12, 14, 16, 18, 20]:
     plt.plot(
         timesteps[smoothing:],
-        [np.mean(ys[config][i-smoothing:i+1]) for i in range(len(timesteps)-smoothing)]
+        [np.mean(ys[config][i-smoothing:i+1]) for i in range(smoothing, len(timesteps))]
     )
     plt.title(titles[config]+' (smoothing=%d)'%smoothing)
     plt.xlabel('Timestep #')
@@ -74,6 +72,7 @@ def train_results(config, smoothing=0):
 def eval_results(path, added_smoothing=3):
     timesteps = []
     eval_rew_period_sums = []
+
 
     with open(path, 'rb') as pickle_file:
         logs_list = pickle.load(pickle_file)
@@ -85,22 +84,23 @@ def eval_results(path, added_smoothing=3):
             except EOFError:
                 break
     eval_rew_period_sums = np.array(eval_rew_period_sums)
+    print(eval_rew_period_sums.shape)
 
     plots = []
     for i in range(len(eval_rew_period_sums[0])):
         yaxis_data = eval_rew_period_sums[:,i]
         plot_i, = plt.plot(
             timesteps[added_smoothing:],
-            [np.mean(yaxis_data[i-added_smoothing:i]) for i in range(len(timesteps)-added_smoothing)],
+            [np.mean(yaxis_data[i-added_smoothing:i]) for i in range(added_smoothing, len(timesteps))],
             color=colors[i]
         )
         plots.append(plot_i)
 
     plt.legend(
-        labels=["{:.1f}".format(l) for l in np.linspace(0, 1, 10)],
+        labels=["{:.1f}".format(l) for l in np.linspace(0.1, 0.9, 10)],
         handles=plots
     )
-    plt.title('Eval Results')
+    plt.title('Eval Results (smoothing=%d)' % added_smoothing)
     plt.xlabel('Timestep #')
     plt.ylabel('Cumulative Reward Sum over 16 episodes')
     plt.show()
@@ -108,6 +108,6 @@ def eval_results(path, added_smoothing=3):
 
 if __name__ == '__main__':
     # train_results(WINDOWREW)
-    eval_results(sys.argv[1])
+    eval_results(sys.argv[1], added_smoothing=8)
 
 
