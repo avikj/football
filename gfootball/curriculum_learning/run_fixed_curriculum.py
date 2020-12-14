@@ -52,7 +52,7 @@ flags.DEFINE_integer('nminibatches', 8,
 flags.DEFINE_integer('save_interval', 100,
                      'How frequently checkpoints are saved.')
 flags.DEFINE_integer('seed', 0, 'Random seed.')
-flags.DEFINE_float('lr', 0.00008, 'Learning rate')
+flags.DEFINE_float('lr', 0.00040, 'Learning rate') # og: 0.00008
 flags.DEFINE_float('ent_coef', 0.01, 'Entropy coeficient')
 flags.DEFINE_float('gamma', 0.993, 'Discount factor')
 flags.DEFINE_float('cliprange', 0.27, 'Clip range')

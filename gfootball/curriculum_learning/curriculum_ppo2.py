@@ -32,7 +32,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             save_interval=10, load_path=None, model_fn=None, update_fn=None, init_fn=None, mpi_rank_weight=1, comm=None, 
             episode_window_size=20, stop=True,
             scenario='gfootball.scenarios.1_vs_1_easy',
-            curriculum=np.linspace(0, 0.9, 10), b=0.1,
+            curriculum=np.linspace(0, 0.9, 10), b=0.2,
             eval_period=20, eval_episodes=1,
             **network_kwargs):
     '''
@@ -176,8 +176,8 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
 
     # get next difficulty according to distribution outlined in probabilities.
     def get_next_difficulty():
-        draw = np.random.choice(range(10), 1, curriculum_probabilities)
-        return draw
+        draw = np.random.choice(range(10), 1, p=curriculum_probabilities)
+        return draw[0]
 
     # Instantiate the runner object
     # Curriculum difficulties start off as random.
@@ -197,21 +197,23 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
     policy = build_policy(env, network, **network_kwargs)
      
     eprews = []
-    rews_by_difficulty = [[] for in range(10)]
+    rews_by_difficulty = [[] for i in range(10)]
 
     k = 5 # last k episodes to smooth over
     rdi = 20 # reward difference interval, in episodes
 
-    def update_curriculum_probabilities(curriculum_probabilities):
-        prev_smoothed_rews = []
-        latest_smoothed_rews = []
-        for i, diffrewlist in enumerate(rewards_by_difficulty):
-            # mean the last k episode's rewards
-            prev_smoothed_rews.append(np.mean(rews_by_difficulty[-rdi-k:-rdi]))
-            latest_smoothed_rews.append(np.mean(rews_by_difficulty[-k:]))
+    def update_curriculum_probabilities():
+            smart_mean = lambda l: np.mean(l) if l else 0
+            prev_smoothed_rews = np.zeros(10)
+            latest_smoothed_rews = np.zeros(10)
+            for i, diffrewlist in enumerate(rews_by_difficulty):
+                # mean the last k episode's rewards
+                prev_smoothed_rews[i] = smart_mean(rews_by_difficulty[i][-rdi-k:-rdi])
+                latest_smoothed_rews[i] = smart_mean(rews_by_difficulty[i][-k:])
 
-        e_diff_rews = np.exp(b * (latest_smoothed_rews - prev_smoothed_rews))
-        return e_diff_rews / np.sum(e_diff_rews)
+            e_diff_rews = np.exp(b * (latest_smoothed_rews - prev_smoothed_rews))
+            return e_diff_rews / np.sum(e_diff_rews)
+
 
 
     # eval_rews[i] will be all the rewards from evaluation i
@@ -288,7 +290,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
 
         # sum of last average_window_size rewards
         last_aws_rewards_sum = sum(eprews[-average_window_size:])
-        rews_by_difficulty[difficulty_idx].extend(np.sum(rewards_this_episode))
+        rews_by_difficulty[difficulty_idx].append(np.sum(rewards_this_episode))
 
         # pickling
         pickle_data = {
@@ -371,13 +373,11 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             print('Saving to', savepath)
             model.save(savepath)
 
-        if update > 5: #10 * (rdi + k): TODO CHANGE THIS BACK TO 10 * (RDI + K) once verified not buggy.
-            curriculum_probabilities = update_curriculum_probabilities()
-            difficulty_idx = get_next_difficulty()
-            print("\n\n\n\n\n=====================================\n",
-                  "NEXT DIFFICULTY:",curriculum[difficulty_idx],
-                  "\n===========================================\n\n\n\n\n\n")
-            env, runner = make_runner(curriculum[difficulty_idx])
+        curriculum_probabilities = update_curriculum_probabilities()
+        print('new probability distr:', curriculum_probabilities)
+        difficulty_idx = get_next_difficulty()
+        print("NEXT DIFFICULTY:",curriculum[difficulty_idx])
+        env, runner = make_runner(curriculum[difficulty_idx])
     return model
 # Avoid division error when calculate the mean (in our case if epinfo is empty returns np.nan, not return an error)
 def safemean(xs):
