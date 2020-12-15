@@ -41,7 +41,7 @@ flags.DEFINE_enum('reward_experiment', 'scoring,checkpoints',
 flags.DEFINE_enum('policy', 'gfootball_impala_cnn', ['cnn', 'lstm', 'mlp', 'impala_cnn',
                                     'gfootball_impala_cnn'],
                   'Policy architecture')
-flags.DEFINE_integer('num_timesteps', int(2e6),
+flags.DEFINE_integer('num_timesteps', 500000,
                      'Number of timesteps to run for.')
 flags.DEFINE_integer('num_envs', 8,
                      'Number of environments to run in parallel.')
@@ -58,6 +58,8 @@ flags.DEFINE_float('ent_coef', 0.01, 'Entropy coeficient')
 flags.DEFINE_float('gamma', 0.993, 'Discount factor')
 flags.DEFINE_float('cliprange', 0.27, 'Clip range')
 flags.DEFINE_float('max_grad_norm', 0.5, 'Max gradient norm (clipping)')
+flags.DEFINE_float('a', 0, 'the scalar on mean')
+flags.DEFINE_float('b', 0, 'the scalar on variance')
 flags.DEFINE_bool('render', False, 'If True, environment rendering is enabled.')
 flags.DEFINE_bool('dump_full_episodes', False,
                   'If True, trace is dumped after every episode.')
@@ -81,6 +83,7 @@ def train(_):
   tf.Session(config=config).__enter__()
 
   print('Running scenario', FLAGS.scenario)
+  print('a=%d,b=%d' % (FLAGS.a, FLAGS.b), 'timesteps=', FLAGS.num_timesteps)
 
   curriculum_ppo2.learn(FLAGS.policy,
              FLAGS,
@@ -92,6 +95,9 @@ def train(_):
              gamma=FLAGS.gamma,
              ent_coef=FLAGS.ent_coef,
              lr=FLAGS.lr,
+             a=FLAGS.a,
+             b=FLAGS.b,
+             num_timesteps=FLAGS.num_timesteps,
              log_interval=1,
              save_interval=FLAGS.save_interval,
              scenario=FLAGS.scenario,
