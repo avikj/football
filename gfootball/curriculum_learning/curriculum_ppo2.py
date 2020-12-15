@@ -32,7 +32,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             save_interval=10, load_path=None, model_fn=None, update_fn=None, init_fn=None, mpi_rank_weight=1, comm=None, 
             episode_window_size=20, stop=True,
             scenario='gfootball.scenarios.1_vs_1_easy',
-            curriculum=np.linspace(0, 0.9, 10), b=0.5,
+            curriculum=np.linspace(0, 0.9, 10), b=0.2,
             eval_period=40, eval_episodes=1,
             **network_kwargs):
     '''
@@ -119,7 +119,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
     is_mpi_root = (MPI is None or MPI.COMM_WORLD.Get_rank() == 0)
 
     # Configure logger to log_ppo_timestamp formatted
-    pickle_str = 'curriculum_ppo_' + '-'.join(str(datetime.datetime.now()).replace(':', ' ').split(' '))
+    pickle_str = 'curriculum_ppo_impala_chkpt' + '-'.join(str(datetime.datetime.now()).replace(':', ' ').split(' '))
   
     eval_pickle_str = pickle_str + '_eval'
 

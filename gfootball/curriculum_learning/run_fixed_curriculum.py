@@ -35,10 +35,10 @@ FLAGS = flags.FLAGS
 flags.DEFINE_enum('state', 'extracted_stacked', ['extracted',
                                                  'extracted_stacked'],
                   'Observation to be used for training.')
-flags.DEFINE_enum('reward_experiment', 'scoring',
+flags.DEFINE_enum('reward_experiment', 'scoring,checkpoints',
                   ['scoring', 'scoring,checkpoints'],
                   'Reward to be used for training.')
-flags.DEFINE_enum('policy', 'cnn', ['cnn', 'lstm', 'mlp', 'impala_cnn',
+flags.DEFINE_enum('policy', 'gfootball_impala_cnn', ['cnn', 'lstm', 'mlp', 'impala_cnn',
                                     'gfootball_impala_cnn'],
                   'Policy architecture')
 flags.DEFINE_integer('num_timesteps', int(2e6),
