@@ -106,8 +106,100 @@ def eval_results(path, added_smoothing=3):
     plt.show()
 
 
+k = 5 # last k episodes to smooth over
+rdi = 20 # reward difference interval, in episodes
+
+def calc_deltas(rews):
+    rewdiffs = []
+    for i, diffrew in enumerate(rews):
+        p = [np.mean(diffrew[j-rdi-k:j-rdi]) for j in range(rdi+k, len(diffrew))]
+        l = [np.mean(diffrew[j-k:j]) for j in range(rdi+k, len(diffrew))]
+        rewdiffs.append(np.array(l) - np.array(p))
+    return rewdiffs
+
+# the amount of positive reward gain over 20 episodes, by difficulty, over time.
+def delta_spec(smoothing=1):
+    # use pickle path as first argument
+    timesteps = [[] for i in range(10)]
+    rews = [[] for i in range(10)]
+
+    path = sys.argv[1]
+    with open(path, 'rb') as pickle_file:
+        logs_dict = pickle.load(pickle_file)
+        while True:
+            try:
+                d = int(10 * logs_dict['difficulty'] + 0.5)
+                timesteps[d].append(logs_dict['timesteps'])
+                rews[d].append(np.mean(logs_dict['episode_rewards']))
+                logs_dict = pickle.load(pickle_file)
+            except EOFError:
+                break
+    rews = np.array(rews)
+    rewdiffs = calc_deltas(rews)
+    plots = []
+    for i in range(10):
+        yaxis_data = rewdiffs[i]
+        ti = timesteps[i][rdi+k:]
+        plot_i, = plt.plot(
+            ti[smoothing:],
+            [np.mean(yaxis_data[j-smoothing:j]) for j in range(smoothing, len(ti))],
+            color=colors[i]
+        )
+        plots.append(plot_i)
+
+    plt.legend(
+        labels=["{:.1f}".format(l) for l in np.linspace(0.1, 0.9, 10)],
+        handles=plots
+    )
+    plt.title('Smoothed Reward Difference along Sliding Window=%d Episodes (smoothing=%d)' % (rdi, smoothing))
+    plt.xlabel('Timestep #')
+    plt.ylabel('Moving Difference in Reward from last %d episodes' % rdi)
+    plt.show()
+
+
+# gaussian
+def gaussian_eval(smoothing=10):
+        # use pickle path as first argument
+    timesteps = [[] for i in range(10)]
+    rews = [[] for i in range(10)]
+
+    path = sys.argv[1]
+    with open(path, 'rb') as pickle_file:
+        logs_dict = pickle.load(pickle_file)
+        while True:
+            try:
+                d = int(10 * logs_dict['difficulty'] + 0.5)
+                timesteps[d].append(logs_dict['timesteps'])
+                rews[d].append(np.mean(logs_dict['episode_rewards']))
+                logs_dict = pickle.load(pickle_file)
+            except EOFError:
+                break
+    rews = np.array(rews)
+    plots = []
+    for i in range(10):
+        yaxis_data = rews[i]
+        ti = timesteps[i]
+        plot_i, = plt.plot(
+            ti[smoothing:],
+            [np.mean(yaxis_data[j-smoothing:j]) for j in range(smoothing, len(ti))],
+            color=colors[i]
+        )
+        plots.append(plot_i)
+
+    plt.legend(
+        labels=["{:.1f}".format(l) for l in np.linspace(0.1, 0.9, 10)],
+        handles=plots
+    )
+    plt.title('Curriculum Evaluation Results (smoothing=%d)' % smoothing)
+    plt.xlabel('Timestep #')
+    plt.ylabel('Average Episode Reward')
+    plt.show()
+
+
 if __name__ == '__main__':
     # train_results(WINDOWREW)
-    eval_results(sys.argv[1], added_smoothing=8)
+    # eval_results(sys.argv[1], added_smoothing=8)
+    # gaussian_eval(50)
+    delta_spec(1)
 
 
