@@ -32,8 +32,8 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             save_interval=10, load_path=None, model_fn=None, update_fn=None, init_fn=None, mpi_rank_weight=1, comm=None, 
             episode_window_size=20, stop=True,
             scenario='gfootball.scenarios.1_vs_1_easy',
-            curriculum=np.linspace(0, 0.9, 10), b=0.2,
-            eval_period=40, eval_episodes=1,
+            curriculum=np.linspace(0, 0.9, 10), b=0.5,
+            eval_period=20, eval_episodes=1,
             **network_kwargs):
     '''
     Learn policy using PPO algorithm (https://arxiv.org/abs/1707.06347)
@@ -201,7 +201,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
     rews_by_difficulty = [[] for i in range(10)]
 
     k = 5 # last k episodes to smooth over
-    rdi = 40 # reward difference interval, in episodes
+    rdi = 20 # reward difference interval, in episodes
 
     def update_curriculum_probabilities():
             smart_mean = lambda l: np.mean(l) if l else 0
@@ -291,6 +291,8 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
 
         # sum of last average_window_size rewards
         last_aws_rewards_sum = sum(eprews[-average_window_size:])
+        print('LAST %d ep mean reward' % episode_window_size, last_aws_rewards_sum / (average_window_size + 0.0))
+
         rews_by_difficulty[difficulty_idx].append(np.sum(rewards_this_episode))
 
         # pickling
