@@ -25,6 +25,7 @@ from baselines import logger
 from baselines.bench import monitor
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from gfootball.curriculum_learning import curriculum_ppo2
+from gfootball.curriculum_learning import curriculum_ab_ppo2
 from gfootball.curriculum_learning import single_difficulty_ppo2
 import gfootball.env as football_env
 from gfootball.examples import models  
@@ -85,7 +86,7 @@ def train(_):
   print('Running scenario', FLAGS.scenario)
   print('a=%d,b=%d' % (FLAGS.a, FLAGS.b), 'timesteps=', FLAGS.num_timesteps)
 
-  curriculum_ppo2.learn(FLAGS.policy,
+  curriculum_ab_ppo2.learn(FLAGS.policy,
              FLAGS,
              seed=FLAGS.seed,
              nsteps=FLAGS.nsteps,

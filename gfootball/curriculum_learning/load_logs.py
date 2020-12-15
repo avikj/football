@@ -52,7 +52,7 @@ def train_results(config, smoothing=0):
                     print(pretty_print(logs_dict))
                 ws = logs_dict['episode_window_size']
                 timesteps.append(logs_dict['timesteps'])
-                mean_ws_episode_rewards.append(sum(logs_dict['last_window_size_rewards']) / ws)
+                # mean_ws_episode_rewards.append(sum(logs_dict['last_window_size_rewards']) / ws)
                 eprewmeans.append(np.mean(logs_dict['episode_rewards']))
                 difficulties.append(logs_dict['difficulty'])
                 logs_dict = pickle.load(pickle_file)
@@ -157,7 +157,7 @@ def delta_spec(smoothing=1):
     plt.show()
 
 
-# gaussian
+# gaussian reward obtained for each separate difficulty
 def gaussian_eval(smoothing=10):
         # use pickle path as first argument
     timesteps = [[] for i in range(10)]
@@ -190,16 +190,20 @@ def gaussian_eval(smoothing=10):
         labels=["{:.1f}".format(l) for l in np.linspace(0.1, 0.9, 10)],
         handles=plots
     )
-    plt.title('Curriculum Evaluation Results (smoothing=%d)' % smoothing)
+    plt.title('Curriculum Train Results (smoothing=%d)' % smoothing)
     plt.xlabel('Timestep #')
     plt.ylabel('Average Episode Reward')
     plt.show()
 
 
 if __name__ == '__main__':
-    # train_results(WINDOWREW)
-    # eval_results(sys.argv[1], added_smoothing=8)
-    # gaussian_eval(50)
-    delta_spec(1)
+    if sys.argv[2] == 'eval':
+        eval_results(sys.argv[1], added_smoothing=5)
+    else:
+        train_results(REWMEAN, smoothing=20)
+        gaussian_eval(10)
+        delta_spec(3)
+
+    
 
 
