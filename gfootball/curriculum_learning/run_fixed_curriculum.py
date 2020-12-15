@@ -82,8 +82,7 @@ def train(_):
 
   print('Running scenario', FLAGS.scenario)
 
-  #curriculum_ppo2.learn(FLAGS.policy,
-  single_difficulty_ppo2.learn(FLAGS.policy,
+  curriculum_ppo2.learn(FLAGS.policy,
              FLAGS,
              seed=FLAGS.seed,
              nsteps=FLAGS.nsteps,

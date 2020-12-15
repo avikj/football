@@ -32,8 +32,8 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             save_interval=10, load_path=None, model_fn=None, update_fn=None, init_fn=None, mpi_rank_weight=1, comm=None, 
             episode_window_size=20, stop=True,
             scenario='gfootball.scenarios.1_vs_1_easy',
-            curriculum=np.linspace(0, 0.9, 10), b=0.2,
-            eval_period=20, eval_episodes=1,
+            curriculum=np.linspace(0, 0.9, 10), b=0.5,
+            eval_period=40, eval_episodes=1,
             **network_kwargs):
     '''
     Learn policy using PPO algorithm (https://arxiv.org/abs/1707.06347)
@@ -120,6 +120,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
 
     # Configure logger to log_ppo_timestamp formatted
     pickle_str = 'curriculum_ppo_' + '-'.join(str(datetime.datetime.now()).replace(':', ' ').split(' '))
+  
     eval_pickle_str = pickle_str + '_eval'
 
     # open pickle file to append relevant data in binary
@@ -138,7 +139,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
                 print('made path', file_path)
     
     make_file(pickle_dir + pickle_str)
-    # make_file(pickle_dir + eval_pickle_str)
+    make_file(pickle_dir + eval_pickle_str)
 
     # Instantiate the model object (that creates act_model and train_model)
     if model_fn is None:
@@ -200,7 +201,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
     rews_by_difficulty = [[] for i in range(10)]
 
     k = 5 # last k episodes to smooth over
-    rdi = 20 # reward difference interval, in episodes
+    rdi = 40 # reward difference interval, in episodes
 
     def update_curriculum_probabilities():
             smart_mean = lambda l: np.mean(l) if l else 0
@@ -298,7 +299,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
           'timesteps' : update*nsteps,
           'episode_rewards' : rewards_this_episode,
           'episode_window_size' : episode_window_size,
-          'last_window_size_rewards' : eprews[-average_window_size:],
+          # 'last_window_size_rewards' : eprews[-average_window_size:],
           'difficulty' : curriculum[difficulty_idx],
           'len_rewards_array' : len(eprews),
           'episode_lenths' : lengths_this_episode,
@@ -323,13 +324,12 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
         if update_fn is not None:
             update_fn(update)
 
-        '''
         # every eval period run for eval_nsteps on every difficulty
         if update % eval_period == 1:
             # rews[i] = sum of rewards from eval_nsteps for difficulty index i
             eval_rews_period = [] # 2D array
             eval_rews_period_sum = [] # 1D array
-            for difficulty_eval in curriculum[::2]:
+            for difficulty_eval in curriculum:
                 eval_env, eval_runner = make_eval_runner(difficulty_eval)
                 eval_rewards_for_difficulty = []
                 for k in range(eval_episodes):
@@ -350,7 +350,6 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             with open(pickle_dir + eval_pickle_str, 'ab') as eval_pickle_file:
                 pickle.dump(eval_pickle_data, eval_pickle_file)
             print('eval pickle dumped, u#', update)
-        '''
 
         if update % log_interval == 0 or update == 1:
             # Calculates if value function is a good predicator of the returns (ev > 1)
