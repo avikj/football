@@ -32,7 +32,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             save_interval=10, load_path=None, model_fn=None, update_fn=None, init_fn=None, mpi_rank_weight=1, comm=None, 
             episode_window_size=20, stop=True,
             scenario='gfootball.scenarios.1_vs_1_easy',
-            curriculum=np.linspace(0, 0.9, 10), a=0, b=0, num_timesteps=500000,
+            curriculum=np.linspace(0, 0.9, 10), a=0, b=0, num_timesteps=200000,
             eval_period=20, eval_episodes=1,
             **network_kwargs):
     '''
@@ -200,16 +200,24 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
     eprews = []
     rews_by_difficulty = [[] for i in range(10)]
 
+    # for logging TEMP
+    ep_vars = [0] * 10
+    lmeans = []
+    lvariances = []
+
     rdi = 20 # reward difference interval, in episodes
+    smart_mean = lambda l: np.mean(l) if l else 0
+    smart_var = lambda l: np.var(l) if l else 0
 
     def update_curriculum_probabilities():
-            smart_mean = lambda l: np.mean(l) if l else 0
-            smart_var = lambda l: np.var(l) if l else 0
             rdi_rew_means = np.array([smart_mean(diffrew[-rdi:]) for diffrew in rews_by_difficulty])
             rdi_rew_vars = np.array([smart_var(diffrew[-rdi:]) for diffrew in rews_by_difficulty])
+            print('means', rdi_rew_means)
+            print('variances', rdi_rew_vars)
+            lmeans.extend(rdi_rew_means)
+            lvariances.extend(rdi_rew_vars)
             e_diff_rews = np.exp(a * rdi_rew_means + b * rdi_rew_vars)
-            return e_diff_rews / np.sum(e_diff_rews)
-
+            return rdi_rew_vars, e_diff_rews / np.sum(e_diff_rews)
 
 
     # eval_rews[i] will be all the rewards from evaluation i
@@ -290,6 +298,10 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
 
         rews_by_difficulty[difficulty_idx].append(np.sum(rewards_this_episode))
 
+        # for logging TEMP
+        print('mean of means', np.mean(lmeans), 'var of means', np.var(lmeans))
+        print('mean of vars', np.mean(lvariances), 'var of vars', np.var(lvariances))
+
         # pickling
         pickle_data = {
           'episode' : update,
@@ -301,6 +313,8 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
           'len_rewards_array' : len(eprews),
           'episode_lenths' : lengths_this_episode,
           'eval_period' : eval_period,
+          'probabilities': curriculum_probabilities,
+          'running_ws_variance' : ep_vars,
           'a' : a,
           'b' : b,
         }
@@ -371,7 +385,7 @@ def learn(network, FLAGS, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0,
             print('Saving to', savepath)
             model.save(savepath)
 
-        curriculum_probabilities = update_curriculum_probabilities()
+        ep_vars, curriculum_probabilities = update_curriculum_probabilities()
         print('new probability distr:', curriculum_probabilities)
         difficulty_idx = get_next_difficulty()
         print("NEXT DIFFICULTY:",curriculum[difficulty_idx])

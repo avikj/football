@@ -42,7 +42,7 @@ flags.DEFINE_enum('reward_experiment', 'scoring,checkpoints',
 flags.DEFINE_enum('policy', 'gfootball_impala_cnn', ['cnn', 'lstm', 'mlp', 'impala_cnn',
                                     'gfootball_impala_cnn'],
                   'Policy architecture')
-flags.DEFINE_integer('num_timesteps', 500000,
+flags.DEFINE_integer('num_timesteps', 200000,
                      'Number of timesteps to run for.')
 flags.DEFINE_integer('num_envs', 8,
                      'Number of environments to run in parallel.')
