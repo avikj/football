@@ -8,10 +8,12 @@ REWMEAN = 0
 DIFFICULTY = 1
 WINDOWREW = 2
 
-titles = ['Episode Rewards Mean', 
+titles = ['Training Rewards', 
 'Difficulty of Rule-Based Agent in 1v1',
 'Mean Episode Reward over last 20 Episodes']
-ylabels = ['Episode Reward Mean', 'Difficulty', 'Window Reward Mean']
+ylabels = ['Episode Mean Reward', 'Difficulty', 'Window Reward Mean']
+
+a, b = 0.0, 0.0
 
 colors = [
     '#0be881',   
@@ -42,6 +44,7 @@ def train_results(config, smoothing=0):
     difficulties = []
 
     ws = 0
+    global a,b
 
     path = sys.argv[1]
     with open(path, 'rb') as pickle_file:
@@ -50,6 +53,7 @@ def train_results(config, smoothing=0):
             try:
                 if logs_dict['episode'] % 10 == 0:
                     print(pretty_print(logs_dict))
+                a, b = logs_dict['a'], logs_dict['b']
                 ws = logs_dict['episode_window_size']
                 timesteps.append(logs_dict['timesteps'])
                 # mean_ws_episode_rewards.append(sum(logs_dict['last_window_size_rewards']) / ws)
@@ -64,15 +68,38 @@ def train_results(config, smoothing=0):
         timesteps[smoothing:],
         [np.mean(ys[config][i-smoothing:i+1]) for i in range(smoothing, len(timesteps))]
     )
-    plt.title(titles[config]+' (smoothing=%d)'%smoothing)
+    plt.title(titles[config]+' a=%.1f,b=%.1f '%(a,b) + '(smoothing=%d)'%smoothing)
     plt.xlabel('Timestep #')
     plt.ylabel(ylabels[config])
     plt.show()
 
+def prob_distr():
+    global a,b
+    path = sys.argv[1]
+    distr = []
+    with open(path, 'rb') as pickle_file:
+        logs_dict = pickle.load(pickle_file)
+        while True:
+            try:
+                a, b = logs_dict['a'], logs_dict['b']
+                distr = logs_dict['probabilities']
+                logs_dict = pickle.load(pickle_file)
+            except EOFError:
+                break
+    # for smoothing in [10, 12, 14, 16, 18, 20]:
+    plt.bar(
+        x=np.linspace(0.1, 0.9, 10),
+        height=distr,width=0.1
+    )
+    plt.title('Final Difficulty Distribution for a=%.1f,b=%.1f '%(a,b))
+    plt.xlabel('Difficulty')
+    plt.ylabel('Probability')
+    plt.show()
+
+
 def eval_results(path, added_smoothing=3):
     timesteps = []
     eval_rew_period_sums = []
-
 
     with open(path, 'rb') as pickle_file:
         logs_list = pickle.load(pickle_file)
@@ -100,7 +127,8 @@ def eval_results(path, added_smoothing=3):
         labels=["{:.1f}".format(l) for l in np.linspace(0.1, 0.9, 10)],
         handles=plots
     )
-    plt.title('Eval Results (smoothing=%d)' % added_smoothing)
+    print(a,b)
+    plt.title('Eval Results' + ' a=%.1f,b=%.1f '%(a,b) + '(smoothing=%d)' % added_smoothing)
     plt.xlabel('Timestep #')
     plt.ylabel('Cumulative Reward Sum over 16 episodes')
     plt.show()
@@ -168,6 +196,7 @@ def gaussian_eval(smoothing=10):
         logs_dict = pickle.load(pickle_file)
         while True:
             try:
+                a, b = logs_dict['a'], logs_dict['b']
                 d = int(10 * logs_dict['difficulty'] + 0.5)
                 timesteps[d].append(logs_dict['timesteps'])
                 rews[d].append(np.mean(logs_dict['episode_rewards']))
@@ -197,12 +226,11 @@ def gaussian_eval(smoothing=10):
 
 
 if __name__ == '__main__':
-    if sys.argv[2] == 'eval':
-        eval_results(sys.argv[1], added_smoothing=5)
-    else:
+        prob_distr()
         train_results(REWMEAN, smoothing=20)
-        gaussian_eval(10)
-        delta_spec(3)
+        eval_results(sys.argv[2], added_smoothing=3)
+        # gaussian_eval(5)
+        # delta_spec(3)
 
     
 
