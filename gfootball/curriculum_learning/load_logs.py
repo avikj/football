@@ -68,7 +68,8 @@ def train_results(config, smoothing=0):
         timesteps[smoothing:],
         [np.mean(ys[config][i-smoothing:i+1]) for i in range(smoothing, len(timesteps))]
     )
-    plt.title(titles[config]+' a=%.1f,b=%.1f '%(a,b) + '(smoothing=%d)'%smoothing)
+    smooth_str = '(smoothing=%d)'%smoothing if smoothing > 2 else ''
+    plt.title(titles[config]+' a=%.1f,b=%.1f '%(a,b) + smooth_str)
     plt.xlabel('Timestep #')
     plt.ylabel(ylabels[config])
     plt.show()
@@ -128,7 +129,8 @@ def eval_results(path, added_smoothing=3):
         handles=plots
     )
     print(a,b)
-    plt.title('Eval Results' + ' a=%.1f,b=%.1f '%(a,b) + '(smoothing=%d)' % added_smoothing)
+    smooth_str = '(smoothing=%d)' % added_smoothing if added_smoothing > 2 else ''
+    plt.title('Eval Results' + ' a=%.1f,b=%.1f '%(a,b) + smooth_str)
     plt.xlabel('Timestep #')
     plt.ylabel('Cumulative Reward Sum over 16 episodes')
     plt.show()
@@ -227,8 +229,8 @@ def gaussian_eval(smoothing=10):
 
 if __name__ == '__main__':
         prob_distr()
-        train_results(REWMEAN, smoothing=20)
-        eval_results(sys.argv[2], added_smoothing=3)
+        train_results(REWMEAN, smoothing=1)
+        eval_results(sys.argv[2], added_smoothing=1)
         # gaussian_eval(5)
         # delta_spec(3)
 
